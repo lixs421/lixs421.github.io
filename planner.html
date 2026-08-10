@@ -239,12 +239,12 @@ body {
     <button class="modal-close" onclick="closeCloudModal()">×</button>
     <div class="modal-title">☁️ 设置云端同步</div>
     <div class="modal-sub">
-      使用 jsonbin.io 免费存储，所有设备自动同步。<br>
-      1. 去 <a href="https://jsonbin.io/app/api-keys" target="_blank" style="color:var(--work)">jsonbin.io</a> 注册免费账号，复制 X-Master-Key<br>
-      2. 首次使用留空 Bin ID，自动创建。其他设备粘贴同样的 API Key + Bin ID 即可互通
+      使用 GitHub Gist 免费存储，所有设备自动同步。<br>
+      1. 去 <a href="https://github.com/settings/tokens" target="_blank" style="color:var(--work)">GitHub Token 页面</a> 创建 Token（勾选 gist 权限）<br>
+      2. 粘贴 Token，首次自动创建存储空间。其他设备用同一 Token + Gist ID 即可互通
     </div>
-    <input class="add-input" id="cloudApiKey" placeholder="粘贴 X-Master-Key..." style="width:100%;margin-bottom:8px;padding:10px 12px;">
-    <input class="add-input" id="cloudBinId" placeholder="Bin ID（首次留空自动创建）" style="width:100%;margin-bottom:12px;padding:10px 12px;">
+    <input class="add-input" id="cloudApiKey" placeholder="粘贴 GitHub Token..." style="width:100%;margin-bottom:8px;padding:10px 12px;">
+    <input class="add-input" id="cloudBinId" placeholder="Gist ID（首次留空自动创建）" style="width:100%;margin-bottom:12px;padding:10px 12px;">
     <div id="cloudCurrentBin" style="font-size:12px;color:var(--text-3);margin-bottom:12px;display:none;"></div>
     <div style="display:flex;gap:8px;">
       <button class="add-btn life" onclick="setupCloudSync()" style="flex:1;padding:10px;">连接云端</button>
@@ -267,52 +267,71 @@ function getBinId(){return localStorage.getItem(JB_BIN)||''}
 function setApiKey(k){localStorage.setItem(JB_KEY,k)}
 function setBinId(id){localStorage.setItem(JB_BIN,id)}
 
-// jsonbin.io API helpers
-async function jbFetch(url,opts={}){
+// GitHub Gist API helpers
+function gistHeaders(){
   const key=getApiKey();
   if(!key)return null;
-  const h=opts.headers||{};
-  h['X-Master-Key']=key;
-  if(!h['Content-Type'])h['Content-Type']='application/json';
-  try{const r=await fetch(url,{...opts,headers:h});if(r.ok)return await r.json()}catch(e){}
+  return {Authorization:'token '+key,'Content-Type':'application/json'};
+}
+async function gistRead(){
+  const gid=getBinId();if(!gid||!syncEnabled)return null;
+  const h=gistHeaders();if(!h)return null;
+  try{
+    const r=await fetch('https://api.github.com/gists/'+gid,{headers:h});
+    if(r.ok){
+      const j=await r.json();
+      const raw=j.files['planner-data.json'].content;
+      return JSON.parse(raw);
+    }
+  }catch(e){}
   return null;
 }
-async function jbRead(){
-  const bid=getBinId();if(!bid)return null;
-  const res=await jbFetch('https://api.jsonbin.io/v3/b/'+bid+'/latest?meta=false');
-  return res;
-}
-function jbWrite(){
+function gistWrite(){
   if(!getBinId()||!syncEnabled)return;
   clearTimeout(debounceTimer);
   debounceTimer=setTimeout(async()=>{
-    await jbFetch('https://api.jsonbin.io/v3/b/'+getBinId(),{method:'PUT',body:JSON.stringify(data)});
+    const h=gistHeaders();if(!h)return;
+    const body=JSON.stringify({files:{'planner-data.json':{content:JSON.stringify(data)}}});
+    await fetch('https://api.github.com/gists/'+getBinId(),{method:'PATCH',headers:h,body}).catch(()=>{});
   },500);
 }
-async function jbCreateBin(){
-  const res=await jbFetch('https://api.jsonbin.io/v3/b',{method:'POST',body:JSON.stringify(data),headers:{'X-Bin-Name':'planner-data','X-Bin-Private':'false'}});
-  if(res&&res.metadata&&res.metadata.id){
-    setBinId(res.metadata.id);
-    syncEnabled=true;
-    updateSyncIndicator();
-    return true;
-  }
+async function gistCreate(){
+  const h=gistHeaders();if(!h)return false;
+  try{
+    const body=JSON.stringify({description:'周计划数据',public:false,files:{'planner-data.json':{content:JSON.stringify(data)}}});
+    const r=await fetch('https://api.github.com/gists',{method:'POST',headers:h,body});
+    if(r.ok){
+      const j=await r.json();
+      setBinId(j.id);
+      syncEnabled=true;
+      updateSyncIndicator();
+      return true;
+    }
+  }catch(e){}
   return false;
 }
 
 async function loadData(){
   const key=getApiKey(),bid=getBinId();
-  // 如果有 jsonbin 配置，优先从云端加载
+  // 如果有 Gist 配置，优先从云端加载
   if(key&&bid){
-    try{const cloud=await jbRead();if(cloud&&(Object.keys(cloud.weeks||{}).length||Object.keys(cloud.days||{}).length)){syncEnabled=true;localStorage.setItem(SK,JSON.stringify(cloud));updateSyncIndicator();return cloud}}catch(e){}
+    try{
+      syncEnabled=true;
+      const cloud=await gistRead();
+      if(cloud&&(Object.keys(cloud.weeks||{}).length||Object.keys(cloud.days||{}).length)){
+        localStorage.setItem(SK,JSON.stringify(cloud));
+        updateSyncIndicator();return cloud;
+      }
+    }catch(e){syncEnabled=false;}
   }
+  syncEnabled=false;
   updateSyncIndicator();
   try{const r=localStorage.getItem(SK);if(r)return JSON.parse(r)}catch(e){}
   return{weeks:{},days:{}}
 }
 function saveData(){
   localStorage.setItem(SK,JSON.stringify(data));
-  jbWrite();
+  gistWrite();
 }
 function getMonday(d){d=new Date(d);d.setHours(0,0,0,0);d.setDate(d.getDate()-((d.getDay()+6)%7));return d}
 function getWeekKey(d){d=getMonday(d);return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
@@ -561,7 +580,7 @@ function openCloudModal(){
   document.getElementById('cloudMsg').textContent='';
   // Show current bin info
   const cb=document.getElementById('cloudCurrentBin');
-  if(getBinId()){cb.style.display='block';cb.textContent='当前 Bin ID: '+getBinId()+'（复制此 ID 到其他设备即可互通）'}else{cb.style.display='none'}
+  if(getBinId()){cb.style.display='block';cb.textContent='当前 Gist ID: '+getBinId()+'（复制此 ID 到其他设备即可互通）'}else{cb.style.display='none'}
   updateCloudModalBtns();
   document.getElementById('cloudModal').classList.add('show');
 }
@@ -582,7 +601,7 @@ async function setupCloudSync(){
   if(existingBinId){
     // 连接已有 bin
     setBinId(existingBinId);
-    const test=await jbRead();
+    const test=await gistRead();
     if(test!=null){
       syncEnabled=true;
       // 合并云端数据
@@ -593,16 +612,16 @@ async function setupCloudSync(){
       document.getElementById('cloudMsg').textContent='✅ 已连接云端！数据已同步。';
     }else{
       localStorage.removeItem(JB_BIN);
-      document.getElementById('cloudMsg').textContent='❌ Bin ID 无效或权限不足，请检查';
+      document.getElementById('cloudMsg').textContent='❌ Gist ID 无效或权限不足，请检查 Token 是否勾选 gist 权限';
     }
   }else{
-    // 创建新 bin
-    const ok=await jbCreateBin();
+    // 创建新 Gist
+    const ok=await gistCreate();
     if(ok){
-      document.getElementById('cloudMsg').textContent='✅ 云端同步已开启！Bin ID: '+getBinId()+'（复制此 ID 到其他设备）';
-      jbWrite();
+      document.getElementById('cloudMsg').textContent='✅ 云端同步已开启！Gist ID: '+getBinId()+'（复制此 ID 去其他设备粘贴即可互通）';
+      gistWrite();
     }else{
-      document.getElementById('cloudMsg').textContent='❌ 创建失败，请检查 API Key';
+      document.getElementById('cloudMsg').textContent='❌ 创建失败，请检查 Token 是否勾选 gist 权限';
     }
   }
   updateCloudModalBtns();
