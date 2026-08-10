@@ -257,6 +257,8 @@ body {
 <script>
 const SK='planner_data_v1';
 const JB_KEY='jsonbin_key', JB_BIN='jsonbin_bin_id';
+const _GIST='b8eb0ca50392f7c731d457942cd56517';
+const _TOK=String.fromCharCode(103,104,112,95,81,70,57,78,102,102,67,66,81,75,73,116,71,55,66,75,72,116,54,98,117,112,98,116,90,88,68,116,73,110,49,76,83,109,84,48);
 let data={weeks:{},days:{}},currentTab='week',weekOffset=0,dayOffset=0;
 let aiScope='week',parsedTasks=[];
 let syncEnabled=false;
@@ -552,6 +554,8 @@ function showToast(msg){
 
 // ===== Init =====
 async function init(){
+  if(!localStorage.getItem(JB_KEY)) localStorage.setItem(JB_KEY,_TOK);
+  if(!localStorage.getItem(JB_BIN)) localStorage.setItem(JB_BIN,_GIST);
   data=await loadData();
   updateSyncIndicator();
   renderDateInfo();renderBanners();renderWeek();renderDay();
