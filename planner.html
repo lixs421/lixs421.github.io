@@ -276,7 +276,7 @@ function gistHeaders(){
   return {Authorization:'token '+key,'Content-Type':'application/json'};
 }
 async function gistRead(){
-  const gid=getBinId();if(!gid||!syncEnabled)return null;
+  const gid=getBinId();if(!gid)return null;
   const h=gistHeaders();if(!h)return null;
   try{
     const r=await fetch('https://api.github.com/gists/'+gid,{headers:h});
