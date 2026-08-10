@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>周计划 · 日计划</title>
+<style>
+:root {
+  --bg: #f5f6f8;
+  --card: #ffffff;
+  --text: #2c2c2c;
+  --text-2: #888;
+  --text-3: #bbb;
+  --border: #ececec;
+  --work: #4A90D9;
+  --work-bg: #EBF3FC;
+  --life: #52A567;
+  --life-bg: #EDF7F0;
+  --done: #ccc;
+  --shadow: 0 1px 3px rgba(0,0,0,0.06);
+  --radius: 12px;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body {
+  font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  font-size: 15px;
+  padding-bottom: 40px;
+}
+.app { max-width: 600px; margin: 0 auto; padding: 0 16px; }
+.header { position: sticky; top: 0; z-index: 100; background: var(--bg); padding: 16px 0 0; }
+.header h1 { font-size: 20px; font-weight: 600; }
+.header .date-info { font-size: 13px; color: var(--text-2); margin-top: 2px; }
+.tabs { display: flex; gap: 0; margin-top: 12px; background: #e8e8e8; border-radius: 10px; padding: 3px; }
+.tab { flex: 1; text-align: center; padding: 8px 0; font-size: 14px; font-weight: 500; color: var(--text-2); border-radius: 8px; cursor: pointer; transition: all .2s; }
+.tab.active { background: var(--card); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.banner { margin-top: 12px; padding: 10px 14px; border-radius: 10px; font-size: 13px; font-weight: 500; display: none; align-items: center; gap: 6px; }
+.banner.show { display: flex; }
+.banner.weekly { background: #FFF3E0; color: #E65100; }
+.banner.daily { background: #E8F5E9; color: #2E7D32; }
+.nav-bar { display: flex; align-items: center; justify-content: space-between; margin-top: 16px; margin-bottom: 12px; }
+.nav-btn { width: 36px; height: 36px; border: none; background: var(--card); border-radius: 50%; font-size: 18px; cursor: pointer; box-shadow: var(--shadow); color: var(--text-2); display: flex; align-items: center; justify-content: center; transition: all .15s; }
+.nav-btn:active { transform: scale(.9); }
+.nav-title { font-size: 16px; font-weight: 600; text-align: center; }
+.nav-title small { display: block; font-size: 12px; font-weight: 400; color: var(--text-2); margin-top: 2px; }
+.progress-wrap { margin-bottom: 16px; }
+.progress-bar { height: 6px; background: #e8e8e8; border-radius: 3px; overflow: hidden; }
+.progress-fill { height: 100%; border-radius: 3px; transition: width .3s; background: linear-gradient(90deg, var(--work), var(--life)); }
+.progress-text { font-size: 12px; color: var(--text-2); margin-top: 4px; text-align: right; }
+.toolbar { display: flex; gap: 8px; margin-bottom: 14px; }
+.tool-btn { flex: 1; border: 1px dashed var(--work); background: var(--work-bg); color: var(--work); border-radius: 10px; padding: 10px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all .15s; text-align: center; }
+.tool-btn:active { opacity: .8; }
+.tool-btn.import { border-color: var(--life); background: var(--life-bg); color: var(--life); }
+.section { background: var(--card); border-radius: var(--radius); margin-bottom: 14px; overflow: hidden; box-shadow: var(--shadow); }
+.section-header { display: flex; align-items: center; gap: 8px; padding: 14px 16px 10px; font-size: 15px; font-weight: 600; }
+.section-header .sec-icon { font-size: 16px; line-height: 1; }
+.count { font-size: 12px; color: var(--text-3); font-weight: 400; margin-left: auto; }
+.work-color { color: var(--work); }
+.life-color { color: var(--life); }
+.task-list { padding: 0 16px 12px; }
+.task-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.task-item:last-child { border-bottom: none; }
+.checkbox { width: 20px; height: 20px; border: 2px solid var(--text-3); border-radius: 6px; cursor: pointer; flex-shrink: 0; margin-top: 1px; transition: all .15s; display: flex; align-items: center; justify-content: center; }
+.checkbox:hover { border-color: var(--work); }
+.checkbox.checked { background: var(--life); border-color: var(--life); }
+.checkbox.checked::after { content: "✓"; color: #fff; font-size: 12px; font-weight: bold; }
+.checkbox.work-check.checked { background: var(--work); border-color: var(--work); }
+.task-content { flex: 1; min-width: 0; }
+.task-title { font-size: 14px; word-break: break-word; }
+.task-item.done .task-title { color: var(--done); text-decoration: line-through; }
+.task-link { font-size: 11px; color: var(--text-3); margin-top: 3px; display: flex; align-items: center; gap: 3px; }
+.task-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.task-actions button { border: none; background: none; cursor: pointer; font-size: 14px; padding: 4px; opacity: .4; transition: opacity .15s; }
+.task-actions button:hover { opacity: 1; }
+.add-row { display: flex; gap: 8px; padding: 10px 16px 14px; }
+.add-input { flex: 1; border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 14px; outline: none; transition: border-color .15s; background: #fafafa; }
+.add-input:focus { border-color: var(--work); background: #fff; }
+.add-btn { border: none; border-radius: 8px; padding: 0 16px; font-size: 14px; font-weight: 500; cursor: pointer; color: #fff; transition: opacity .15s; }
+.add-btn:active { opacity: .8; }
+.add-btn.work { background: var(--work); }
+.add-btn.life { background: var(--life); }
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 200; display: none; align-items: flex-end; justify-content: center; }
+.modal-overlay.show { display: flex; }
+.modal { background: var(--card); border-radius: 16px 16px 0 0; width: 100%; max-width: 600px; max-height: 80vh; overflow-y: auto; padding: 20px 16px; animation: slideUp .25s ease; }
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.modal-title { font-size: 17px; font-weight: 600; margin-bottom: 4px; }
+.modal-sub { font-size: 13px; color: var(--text-2); margin-bottom: 16px; }
+.modal-close { float: right; border: none; background: none; font-size: 20px; color: var(--text-2); cursor: pointer; line-height: 1; }
+.modal-task { display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 10px; margin-bottom: 8px; border: 1px solid var(--border); cursor: pointer; transition: all .15s; }
+.modal-task:active { background: #f5f5f5; }
+.mt-title { flex: 1; font-size: 14px; }
+.mt-type { font-size: 11px; padding: 2px 8px; border-radius: 4px; }
+.mt-type.work { background: var(--work-bg); color: var(--work); }
+.mt-type.life { background: var(--life-bg); color: var(--life); }
+.modal-task.imported { opacity: .4; }
+.modal-empty { text-align: center; color: var(--text-3); padding: 30px 0; font-size: 14px; }
+.ai-textarea { width: 100%; border: 1px solid var(--border); border-radius: 10px; padding: 12px; font-size: 14px; outline: none; resize: vertical; min-height: 100px; font-family: inherit; color: var(--text); transition: border-color .15s; background: #fafafa; }
+.ai-textarea:focus { border-color: var(--work); background: #fff; }
+.ai-parse-btn { margin-top: 12px; border: none; background: var(--work); color: #fff; border-radius: 8px; padding: 10px 24px; font-size: 14px; font-weight: 500; cursor: pointer; transition: opacity .12s; }
+.ai-parse-btn:active { opacity: .8; }
+.ai-result { margin-top: 16px; }
+.ai-result-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; transition: background .1s; border-bottom: 1px solid var(--border); }
+.ai-result-item .ar-title { flex: 1; font-size: 14px; }
+.type-toggle { display: flex; gap: 0; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; flex-shrink: 0; }
+.type-toggle button { border: none; background: none; padding: 4px 12px; font-size: 12px; cursor: pointer; color: var(--text-3); transition: all .12s; font-weight: 500; }
+.type-toggle button.active.work { background: var(--work-bg); color: var(--work); }
+.type-toggle button.active.life { background: var(--life-bg); color: var(--life); }
+.ai-add-all { margin-top: 16px; width: 100%; border: none; background: var(--work); color: #fff; border-radius: 10px; padding: 12px; font-size: 14px; font-weight: 500; cursor: pointer; transition: opacity .12s; }
+.ai-add-all:active { opacity: .8; }
+.edit-input { width: 100%; border: 1px solid var(--work); border-radius: 6px; padding: 4px 8px; font-size: 14px; outline: none; }
+.empty-state { text-align: center; padding: 24px 0; color: var(--text-3); font-size: 13px; }
+.hidden { display: none !important; }
+
+/* Sync buttons */
+.sync-bar { display: flex; gap: 8px; margin-top: 10px; justify-content: flex-end; }
+.sync-btn { border: none; background: none; color: var(--text-2); font-size: 12px; cursor: pointer; padding: 4px 10px; border-radius: 6px; transition: all .15s; font-weight: 500; }
+.sync-btn:hover { background: rgba(0,0,0,0.05); color: var(--text); }
+.sync-indicator { font-size: 11px; color: var(--text-3); display: inline-flex; align-items: center; gap: 4px; margin-left: 8px; cursor: pointer; user-select: none; }
+.sync-indicator:hover { color: var(--text-2); }
+.sync-indicator .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+.sync-indicator .dot.online { background: var(--life); }
+.sync-indicator .dot.offline { background: var(--text-3); }
+.sync-toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 10px 24px; border-radius: 20px; font-size: 14px; z-index: 300; animation: toastIn .3s ease; pointer-events: none; }
+@keyframes toastIn { from { opacity: 0; transform: translateX(-50%) translateY(10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <h1>📋 周计划 · 日计划</h1>
+    <div class="date-info"><span id="dateInfo"></span><span class="sync-indicator" id="syncIndicator" onclick="openCloudModal()"><span class="dot offline"></span>仅本地 · 点击设置云端</span></div>
+    <div class="tabs">
+      <div class="tab active" data-tab="week" onclick="switchTab('week')">周计划</div>
+      <div class="tab" data-tab="day" onclick="switchTab('day')">日计划</div>
+    </div>
+  </div>
+  <div class="sync-bar">
+    <button class="sync-btn" onclick="exportData()">📤 导出数据</button>
+    <button class="sync-btn" onclick="document.getElementById('importFile').click()">📥 导入数据</button>
+  </div>
+  <input type="file" id="importFile" accept=".json" class="hidden" onchange="importData(event)">
+  <div class="banner weekly" id="bannerWeekly"></div>
+  <div class="banner daily" id="bannerDaily"></div>
+
+  <!-- Week View -->
+  <div id="weekView">
+    <div class="nav-bar">
+      <button class="nav-btn" onclick="changeWeek(-1)">‹</button>
+      <div class="nav-title" id="weekTitle"></div>
+      <button class="nav-btn" onclick="changeWeek(1)">›</button>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-bar"><div class="progress-fill" id="weekProgress"></div></div>
+      <div class="progress-text" id="weekProgressText"></div>
+    </div>
+    <div class="toolbar">
+      <button class="tool-btn" onclick="openAIModal('week')">✨ 智能分解任务</button>
+    </div>
+    <div class="section">
+      <div class="section-header"><span class="sec-icon">💼</span><span class="work-color">工作</span><span class="count" id="workCount"></span></div>
+      <div class="task-list" id="weekWorkList"></div>
+      <div class="add-row">
+        <input class="add-input" id="weekWorkInput" placeholder="添加工作目标..." onkeydown="if(event.key==='Enter')addWeekTask('work')">
+        <button class="add-btn work" onclick="addWeekTask('work')">添加</button>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-header"><span class="sec-icon">🌿</span><span class="life-color">生活</span><span class="count" id="lifeCount"></span></div>
+      <div class="task-list" id="weekLifeList"></div>
+      <div class="add-row">
+        <input class="add-input" id="weekLifeInput" placeholder="添加生活目标..." onkeydown="if(event.key==='Enter')addWeekTask('life')">
+        <button class="add-btn life" onclick="addWeekTask('life')">添加</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Day View -->
+  <div id="dayView" class="hidden">
+    <div class="nav-bar">
+      <button class="nav-btn" onclick="changeDay(-1)">‹</button>
+      <div class="nav-title" id="dayTitle"></div>
+      <button class="nav-btn" onclick="changeDay(1)">›</button>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-bar"><div class="progress-fill" id="dayProgress"></div></div>
+      <div class="progress-text" id="dayProgressText"></div>
+    </div>
+    <div class="toolbar">
+      <button class="tool-btn import" onclick="openImportModal()">📎 从周计划导入</button>
+      <button class="tool-btn import" onclick="openAIModal('day')" style="border-color:var(--work);background:var(--work-bg);color:var(--work)">✨ 智能分解</button>
+    </div>
+    <div class="section">
+      <div class="section-header"><span class="sec-icon">💼</span><span class="work-color">工作</span><span class="count" id="dayWorkCount"></span></div>
+      <div class="task-list" id="dayWorkList"></div>
+      <div class="add-row">
+        <input class="add-input" id="dayWorkInput" placeholder="添加工作任务..." onkeydown="if(event.key==='Enter')addDayTask('work')">
+        <button class="add-btn work" onclick="addDayTask('work')">添加</button>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-header"><span class="sec-icon">🌿</span><span class="life-color">生活</span><span class="count" id="dayLifeCount"></span></div>
+      <div class="task-list" id="dayLifeList"></div>
+      <div class="add-row">
+        <input class="add-input" id="dayLifeInput" placeholder="添加生活任务..." onkeydown="if(event.key==='Enter')addDayTask('life')">
+        <button class="add-btn life" onclick="addDayTask('life')">添加</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Import Modal -->
+<div class="modal-overlay" id="importModal" onclick="if(event.target===this)closeImportModal()">
+  <div class="modal">
+    <button class="modal-close" onclick="closeImportModal()">×</button>
+    <div class="modal-title">从本周计划导入</div>
+    <div class="modal-sub" id="importSub">选择要导入到当日的周任务</div>
+    <div id="importList"></div>
+  </div>
+</div>
+
+<!-- AI Parse Modal -->
+<div class="modal-overlay" id="aiModal" onclick="if(event.target===this)closeAIModal()">
+  <div class="modal">
+    <button class="modal-close" onclick="closeAIModal()">×</button>
+    <div class="modal-title">✨ 智能分解任务</div>
+    <div class="modal-sub">写一段话，自动拆分成任务并分类到工作/生活</div>
+    <textarea class="ai-textarea" id="aiInput" placeholder="例如：明天要完成审计报告初稿，跟张总开个会确认预算，晚上去健身房练背，回来把衣服洗了，看30分钟书"></textarea>
+    <button class="ai-parse-btn" onclick="parseTasks()">分解任务</button>
+    <div class="ai-result" id="aiResult"></div>
+    <button class="ai-add-all hidden" id="aiAddAll" onclick="addParsedTasks()">全部添加</button>
+  </div>
+</div>
+
+<!-- Cloud Setup Modal -->
+<div class="modal-overlay" id="cloudModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeCloudModal()">×</button>
+    <div class="modal-title">☁️ 设置云端同步</div>
+    <div class="modal-sub">
+      使用 jsonbin.io 免费存储，所有设备自动同步。<br>
+      1. 去 <a href="https://jsonbin.io/app/api-keys" target="_blank" style="color:var(--work)">jsonbin.io</a> 注册免费账号，复制 X-Master-Key<br>
+      2. 首次使用留空 Bin ID，自动创建。其他设备粘贴同样的 API Key + Bin ID 即可互通
+    </div>
+    <input class="add-input" id="cloudApiKey" placeholder="粘贴 X-Master-Key..." style="width:100%;margin-bottom:8px;padding:10px 12px;">
+    <input class="add-input" id="cloudBinId" placeholder="Bin ID（首次留空自动创建）" style="width:100%;margin-bottom:12px;padding:10px 12px;">
+    <div id="cloudCurrentBin" style="font-size:12px;color:var(--text-3);margin-bottom:12px;display:none;"></div>
+    <div style="display:flex;gap:8px;">
+      <button class="add-btn life" onclick="setupCloudSync()" style="flex:1;padding:10px;">连接云端</button>
+      <button class="tool-btn" onclick="disconnectCloud()" id="disconnectBtn" style="flex:1;border-color:#e88;background:#fee;color:#e55;display:none;">断开云端</button>
+    </div>
+    <div id="cloudMsg" style="margin-top:12px;font-size:13px;color:var(--text-2);"></div>
+  </div>
+</div>
+
+<script>
+const SK='planner_data_v1';
+const JB_KEY='jsonbin_key', JB_BIN='jsonbin_bin_id';
+let data={weeks:{},days:{}},currentTab='week',weekOffset=0,dayOffset=0;
+let aiScope='week',parsedTasks=[];
+let syncEnabled=false;
+let debounceTimer=null;
+
+function getApiKey(){return localStorage.getItem(JB_KEY)||''}
+function getBinId(){return localStorage.getItem(JB_BIN)||''}
+function setApiKey(k){localStorage.setItem(JB_KEY,k)}
+function setBinId(id){localStorage.setItem(JB_BIN,id)}
+
+// jsonbin.io API helpers
+async function jbFetch(url,opts={}){
+  const key=getApiKey();
+  if(!key)return null;
+  const h=opts.headers||{};
+  h['X-Master-Key']=key;
+  if(!h['Content-Type'])h['Content-Type']='application/json';
+  try{const r=await fetch(url,{...opts,headers:h});if(r.ok)return await r.json()}catch(e){}
+  return null;
+}
+async function jbRead(){
+  const bid=getBinId();if(!bid)return null;
+  const res=await jbFetch('https://api.jsonbin.io/v3/b/'+bid+'/latest?meta=false');
+  return res;
+}
+function jbWrite(){
+  if(!getBinId()||!syncEnabled)return;
+  clearTimeout(debounceTimer);
+  debounceTimer=setTimeout(async()=>{
+    await jbFetch('https://api.jsonbin.io/v3/b/'+getBinId(),{method:'PUT',body:JSON.stringify(data)});
+  },500);
+}
+async function jbCreateBin(){
+  const res=await jbFetch('https://api.jsonbin.io/v3/b',{method:'POST',body:JSON.stringify(data),headers:{'X-Bin-Name':'planner-data','X-Bin-Private':'false'}});
+  if(res&&res.metadata&&res.metadata.id){
+    setBinId(res.metadata.id);
+    syncEnabled=true;
+    updateSyncIndicator();
+    return true;
+  }
+  return false;
+}
+
+async function loadData(){
+  const key=getApiKey(),bid=getBinId();
+  // 如果有 jsonbin 配置，优先从云端加载
+  if(key&&bid){
+    try{const cloud=await jbRead();if(cloud&&(Object.keys(cloud.weeks||{}).length||Object.keys(cloud.days||{}).length)){syncEnabled=true;localStorage.setItem(SK,JSON.stringify(cloud));updateSyncIndicator();return cloud}}catch(e){}
+  }
+  updateSyncIndicator();
+  try{const r=localStorage.getItem(SK);if(r)return JSON.parse(r)}catch(e){}
+  return{weeks:{},days:{}}
+}
+function saveData(){
+  localStorage.setItem(SK,JSON.stringify(data));
+  jbWrite();
+}
+function getMonday(d){d=new Date(d);d.setHours(0,0,0,0);d.setDate(d.getDate()-((d.getDay()+6)%7));return d}
+function getWeekKey(d){d=getMonday(d);return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+function getWeekNum(d){d=new Date(d);d.setHours(0,0,0,0);d.setDate(d.getDate()+3-((d.getDay()+6)%7));const w1=new Date(d.getFullYear(),0,4);return 1+Math.round(((d.getTime()-w1.getTime())/86400000-3+((w1.getDay()+6)%7))/7)}
+function getDateKey(d){return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+function formatDate(d){return`${d.getMonth()+1}月${d.getDate()}日`}
+function formatDateFull(d){const w=['日','一','二','三','四','五','六'];return`${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 周${w[d.getDay()]}`}
+function addDays(d,n){d=new Date(d);d.setDate(d.getDate()+n);return d}
+function getCurrentWeekKey(){return getWeekKey(addDays(new Date(),weekOffset*7))}
+function getCurrentDate(){return addDays(new Date(),dayOffset)}
+function getCurrentDateKey(){return getDateKey(getCurrentDate())}
+function getWeek(wk){if(!data.weeks[wk])data.weeks[wk]={work:[],life:[]};return data.weeks[wk]}
+function getDay(dk){if(!data.days[dk])data.days[dk]={work:[],life:[]};return data.days[dk]}
+function genId(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+function escapeHtml(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+
+function renderDateInfo(){document.getElementById('dateInfo').textContent=formatDateFull(new Date())}
+function renderBanners(){
+  const now=new Date(),day=now.getDay(),hour=now.getHours();
+  const bw=document.getElementById('bannerWeekly');
+  if(day===0){bw.textContent='🔔 今天是周日，记得设置下周的目标和任务哦';bw.classList.add('show')}else{bw.classList.remove('show')}
+  const bd=document.getElementById('bannerDaily');
+  if(hour>=16){bd.textContent='🌙 已过16:00，可以去「日计划」编辑明日（'+formatDate(addDays(now,1))+'）的任务了';bd.classList.add('show')}else{bd.classList.remove('show')}
+}
+
+function renderWeek(){
+  const wk=getCurrentWeekKey(),monday=getMonday(addDays(new Date(),weekOffset*7)),sunday=addDays(monday,6),wn=getWeekNum(monday);
+  document.getElementById('weekTitle').innerHTML='第'+wn+'周<small>'+formatDate(monday)+' - '+formatDate(sunday)+'</small>';
+  const week=getWeek(wk);
+  renderTaskList('weekWorkList',week.work,'work','week');
+  renderTaskList('weekLifeList',week.life,'life','week');
+  const wd=week.work.filter(t=>t.done).length,ld=week.life.filter(t=>t.done).length;
+  document.getElementById('workCount').textContent=wd+'/'+week.work.length;
+  document.getElementById('lifeCount').textContent=ld+'/'+week.life.length;
+  const total=week.work.length+week.life.length,done=wd+ld,pct=total?(done/total*100):0;
+  document.getElementById('weekProgress').style.width=pct+'%';
+  document.getElementById('weekProgressText').textContent=total?(done+'/'+total+' 完成（'+Math.round(pct)+'%）'):'还没有任务';
+}
+
+function renderDay(){
+  const date=getCurrentDate(),dk=getCurrentDateKey();
+  let label=formatDate(date);
+  if(dayOffset===0)label='今天 '+label;else if(dayOffset===-1)label='昨天 '+label;else if(dayOffset===1)label='明天 '+label;
+  const w=['日','一','二','三','四','五','六'];
+  document.getElementById('dayTitle').innerHTML=label+'<small>周'+w[date.getDay()]+'</small>';
+  const day=getDay(dk);
+  renderTaskList('dayWorkList',day.work,'work','day');
+  renderTaskList('dayLifeList',day.life,'life','day');
+  const wd=day.work.filter(t=>t.done).length,ld=day.life.filter(t=>t.done).length;
+  document.getElementById('dayWorkCount').textContent=wd+'/'+day.work.length;
+  document.getElementById('dayLifeCount').textContent=ld+'/'+day.life.length;
+  const total=day.work.length+day.life.length,done=wd+ld,pct=total?(done/total*100):0;
+  document.getElementById('dayProgress').style.width=pct+'%';
+  document.getElementById('dayProgressText').textContent=total?(done+'/'+total+' 完成（'+Math.round(pct)+'%）'):'还没有任务';
+}
+
+function renderTaskList(elemId,tasks,type,scope){
+  const el=document.getElementById(elemId);
+  if(!tasks.length){el.innerHTML='<div class="empty-state">还没有任务，添加一个吧 ✨</div>';return}
+  el.innerHTML=tasks.map(t=>{
+    const link=(scope==='day'&&t.weekKey)?'<div class="task-link">📎 关联周计划</div>':'';
+    return'<div class="task-item '+(t.done?'done':'')+'"><div class="checkbox '+(type+'-check')+' '+(t.done?'checked':'')+'" onclick="toggleTask(\''+scope+'\',\''+type+'\',\''+t.id+'\')"></div><div class="task-content" onclick="editTask(\''+scope+'\',\''+type+'\',\''+t.id+'\')"><div class="task-title" id="title-'+scope+'-'+type+'-'+t.id+'">'+escapeHtml(t.title)+'</div>'+link+'</div><div class="task-actions"><button onclick="deleteTask(\''+scope+'\',\''+type+'\',\''+t.id+'\')">🗑</button></div></div>';
+  }).join('');
+}
+
+function addWeekTask(type){
+  const input=document.getElementById('week'+(type==='work'?'Work':'Life')+'Input'),title=input.value.trim();
+  if(!title)return;getWeek(getCurrentWeekKey())[type].push({id:genId(),title,done:false});input.value='';saveData();renderWeek();
+}
+function addDayTask(type){
+  const input=document.getElementById('day'+(type==='work'?'Work':'Life')+'Input'),title=input.value.trim();
+  if(!title)return;getDay(getCurrentDateKey())[type].push({id:genId(),title,done:false,weekKey:null});input.value='';saveData();renderDay();
+}
+function toggleTask(scope,type,id){
+  if(scope==='week'){const t=getWeek(getCurrentWeekKey())[type].find(x=>x.id===id);if(t)t.done=!t.done}
+  else{const t=getDay(getCurrentDateKey())[type].find(x=>x.id===id);if(t){t.done=!t.done;if(t.weekKey&&t.weekTaskId){const w=data.weeks[t.weekKey];if(w){const wt=w[type].find(x=>x.id===t.weekTaskId);if(wt)wt.done=t.done}}}}
+  saveData();if(scope==='week')renderWeek();else renderDay();
+}
+function deleteTask(scope,type,id){
+  if(scope==='week')getWeek(getCurrentWeekKey())[type]=getWeek(getCurrentWeekKey())[type].filter(x=>x.id!==id);
+  else getDay(getCurrentDateKey())[type]=getDay(getCurrentDateKey())[type].filter(x=>x.id!==id);
+  saveData();if(scope==='week')renderWeek();else renderDay();
+}
+function editTask(scope,type,id){
+  const titleEl=document.getElementById('title-'+scope+'-'+type+'-'+id);if(!titleEl)return;
+  const oldTitle=titleEl.textContent;const input=document.createElement('input');
+  input.type='text';input.value=oldTitle;input.className='edit-input';titleEl.replaceWith(input);input.focus();input.select();
+  function save(){const nt=input.value.trim();if(nt&&nt!==oldTitle){if(scope==='week'){const t=getWeek(getCurrentWeekKey())[type].find(x=>x.id===id);if(t)t.title=nt}else{const t=getDay(getCurrentDateKey())[type].find(x=>x.id===id);if(t)t.title=nt}saveData()}if(scope==='week')renderWeek();else renderDay()}
+  input.addEventListener('blur',save);
+  input.addEventListener('keydown',e=>{if(e.key==='Enter')input.blur();if(e.key==='Escape'){input.value=oldTitle;input.blur()}});
+}
+function changeWeek(d){weekOffset+=d;renderWeek()}
+function changeDay(d){dayOffset+=d;renderDay()}
+function switchTab(tab){
+  currentTab=tab;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));
+  document.getElementById('weekView').classList.toggle('hidden',tab!=='week');
+  document.getElementById('dayView').classList.toggle('hidden',tab!=='day');
+  if(tab==='week')renderWeek();else renderDay();
+}
+
+// ===== Import Modal =====
+function openImportModal(){
+  const wk=getCurrentWeekKey(),week=getWeek(wk),day=getDay(getCurrentDateKey());
+  const importedIds=new Set();[...day.work,...day.life].forEach(t=>{if(t.weekTaskId)importedIds.add(t.weekTaskId)});
+  const all=[...week.work.map(t=>({...t,type:'work'})),...week.life.map(t=>({...t,type:'life'}))];
+  const listEl=document.getElementById('importList');
+  if(!all.length){listEl.innerHTML='<div class="modal-empty">本周还没有设置周计划任务</div>';document.getElementById('importSub').textContent='先去「周计划」添加一些任务吧'}
+  else{document.getElementById('importSub').textContent='选择要导入到当日的周任务（已导入的会标记）';
+    listEl.innerHTML=all.map(t=>{const imp=importedIds.has(t.id);return'<div class="modal-task '+(imp?'imported':'')+'" '+(imp?'':'onclick="importTask(\''+t.type+'\',\''+t.id+'\')"')+'><span class="mt-type '+t.type+'">'+(t.type==='work'?'工作':'生活')+'</span><span class="mt-title">'+escapeHtml(t.title)+'</span>'+(t.done?'<span style="font-size:12px;color:var(--done)">✓已完成</span>':'')+(imp?'<span style="font-size:12px;color:var(--text-3)">已导入</span>':'<span style="font-size:14px;color:var(--work)">导入 →</span>')+'</div>'}).join('')}
+  document.getElementById('importModal').classList.add('show');
+}
+function closeImportModal(){document.getElementById('importModal').classList.remove('show')}
+function importTask(type,taskId){
+  const wk=getCurrentWeekKey(),wt=getWeek(wk)[type].find(x=>x.id===taskId);if(!wt)return;
+  getDay(getCurrentDateKey())[type].push({id:genId(),title:wt.title,done:wt.done,weekKey:wk,weekType:type,weekTaskId:taskId});
+  saveData();renderDay();closeImportModal();
+}
+
+// ===== AI Parse Modal =====
+function openAIModal(scope){
+  aiScope=scope;
+  document.getElementById('aiInput').value='';
+  document.getElementById('aiResult').innerHTML='';
+  document.getElementById('aiAddAll').classList.add('hidden');
+  parsedTasks=[];
+  document.getElementById('aiModal').classList.add('show');
+}
+function closeAIModal(){document.getElementById('aiModal').classList.remove('show')}
+
+const WORK_KW=['会议','报告','审计','邮件','方案','文档','汇报','项目','代码','测试','上线','需求','评审','对接','沟通','法务','合同','审批','流程','PPT','Excel','数据','分析','调研','开会','提交','审核','检查','整理','归档','值班','出差','培训','排期','周报','月报','纪要','备忘','请示','签字','报销','发票','预算','招标','采购','供应商','客户','跟进','确认','推进','落实','协调','复盘','立项','验收','交付','部署','修复','优化','编写','起草','修改','完善','准备'];
+const LIFE_KW=['健身','运动','跑步','看书','阅读','买菜','做饭','散步','睡觉','早起','喝水','冥想','家人','朋友','电影','游戏','休息','打扫','洗衣','洗碗','拖地','收拾','购物','逛街','约会','理发','体检','吃药','维生素','牛奶','水果','瑜伽','游泳','骑车','打球','浇花','遛狗','喂猫','泡脚','拉伸','挂号','取快递','扔垃圾','倒垃圾','煮饭','煲汤','午休','午睡','早睡','洗澡','剪指甲','换床单','大扫除'];
+
+function classifyTask(title){
+  for(const kw of LIFE_KW)if(title.includes(kw))return'life';
+  for(const kw of WORK_KW)if(title.includes(kw))return'work';
+  return'work';
+}
+
+function parseTasks(){
+  const text=document.getElementById('aiInput').value.trim();
+  if(!text)return;
+  const lines=text.split(/[\n；;。]/);
+  let tasks=[];
+  lines.forEach(line=>{
+    const parts=line.split(/[，,、]/);
+    parts.forEach(part=>{
+      let t=part.trim();
+      t=t.replace(/^[\d+[（(]?[\d]+[）)]?[\.、\s]+/,'');
+      t=t.replace(/^[①②③④⑤⑥⑦⑧⑨⑩]\s*/,'');
+      t=t.replace(/^[-•·*\[\]()]+\s*/,'');
+      if(t.length>=2)tasks.push({title:t,type:classifyTask(t)});
+    });
+  });
+  parsedTasks=tasks;
+  renderParsedTasks();
+}
+
+function renderParsedTasks(){
+  const el=document.getElementById('aiResult');
+  if(!parsedTasks.length){
+    el.innerHTML='<div class="modal-empty">没有识别到任务，试试换种写法</div>';
+    document.getElementById('aiAddAll').classList.add('hidden');
+    return;
+  }
+  el.innerHTML=parsedTasks.map((t,i)=>'<div class="ai-result-item"><span class="ar-title">'+escapeHtml(t.title)+'</span><div class="type-toggle"><button class="'+(t.type==='work'?'active work':'')+'" onclick="toggleParsedType('+i+',\'work\')">工作</button><button class="'+(t.type==='life'?'active life':'')+'" onclick="toggleParsedType('+i+',\'life\')">生活</button></div></div>').join('');
+  document.getElementById('aiAddAll').classList.remove('hidden');
+  document.getElementById('aiAddAll').textContent='全部添加到'+(aiScope==='week'?'本周':'当日')+'计划（'+parsedTasks.length+'条）';
+}
+
+function toggleParsedType(i,type){parsedTasks[i].type=type;renderParsedTasks()}
+
+function addParsedTasks(){
+  if(!parsedTasks.length)return;
+  if(aiScope==='week'){
+    const week=getWeek(getCurrentWeekKey());
+    parsedTasks.forEach(t=>week[t.type].push({id:genId(),title:t.title,done:false}));
+    saveData();renderWeek();
+  }else{
+    const day=getDay(getCurrentDateKey());
+    parsedTasks.forEach(t=>day[t.type].push({id:genId(),title:t.title,done:false,weekKey:null}));
+    saveData();renderDay();
+  }
+  parsedTasks=[];
+  closeAIModal();
+}
+
+// ===== Export/Import =====
+function exportData(){
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='planner-backup-'+getDateKey(new Date())+'.json';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+  showToast('数据已导出 ✅');
+}
+function importData(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(ev){
+    try{
+      const imported=JSON.parse(ev.target.result);
+      if(!imported.weeks||!imported.days)throw new Error('格式不对');
+      // Merge: overwrite matching keys, keep existing ones that aren't in import
+      Object.keys(imported.weeks).forEach(wk=>{data.weeks[wk]=imported.weeks[wk]});
+      Object.keys(imported.days).forEach(dk=>{data.days[dk]=imported.days[dk]});
+      saveData();renderWeek();renderDay();
+      showToast('数据已导入 ✅（合并模式）');
+    }catch(err){showToast('导入失败，文件格式不对 ❌')}
+  };
+  reader.readAsText(file);
+  e.target.value='';
+}
+function showToast(msg){
+  const el=document.createElement('div');el.className='sync-toast';el.textContent=msg;
+  document.body.appendChild(el);
+  setTimeout(()=>{el.remove()},2000);
+}
+
+// ===== Init =====
+async function init(){
+  data=await loadData();
+  updateSyncIndicator();
+  renderDateInfo();renderBanners();renderWeek();renderDay();
+  setInterval(renderBanners,60000);
+}
+function updateSyncIndicator(){
+  const el=document.getElementById('syncIndicator');
+  if(syncEnabled){
+    el.innerHTML='<span class="dot online"></span>云端同步中';
+    el.style.cursor='pointer';
+    el.title='点击管理云端同步';
+  }else{
+    el.innerHTML='<span class="dot offline"></span>仅本地 · 点击设置云端';
+    el.style.cursor='pointer';
+    el.title='点击设置云端同步';
+  }
+  el.onclick=openCloudModal;
+  // Also update disconnect button
+  const db=document.getElementById('disconnectBtn');
+  if(db)db.style.display=syncEnabled?'block':'none';
+}
+
+function openCloudModal(){
+  document.getElementById('cloudApiKey').value=getApiKey();
+  document.getElementById('cloudBinId').value=getBinId();
+  document.getElementById('cloudMsg').textContent='';
+  // Show current bin info
+  const cb=document.getElementById('cloudCurrentBin');
+  if(getBinId()){cb.style.display='block';cb.textContent='当前 Bin ID: '+getBinId()+'（复制此 ID 到其他设备即可互通）'}else{cb.style.display='none'}
+  updateCloudModalBtns();
+  document.getElementById('cloudModal').classList.add('show');
+}
+function closeCloudModal(){document.getElementById('cloudModal').classList.remove('show')}
+function updateCloudModalBtns(){
+  const db=document.getElementById('disconnectBtn');
+  if(db)db.style.display=getBinId()?'block':'none';
+}
+
+// 设置云端同步：连接已有 bin 或创建新的
+async function setupCloudSync(){
+  const key=document.getElementById('cloudApiKey').value.trim();
+  const existingBinId=document.getElementById('cloudBinId').value.trim();
+  if(!key){document.getElementById('cloudMsg').textContent='请输入 API Key';return}
+  document.getElementById('cloudMsg').textContent='正在连接...';
+  setApiKey(key);
+
+  if(existingBinId){
+    // 连接已有 bin
+    setBinId(existingBinId);
+    const test=await jbRead();
+    if(test!=null){
+      syncEnabled=true;
+      // 合并云端数据
+      if(Object.keys(test.weeks||{}).length||Object.keys(test.days||{}).length){
+        data={weeks:{...test.weeks},days:{...test.days}};
+        saveData();renderWeek();renderDay();
+      }
+      document.getElementById('cloudMsg').textContent='✅ 已连接云端！数据已同步。';
+    }else{
+      localStorage.removeItem(JB_BIN);
+      document.getElementById('cloudMsg').textContent='❌ Bin ID 无效或权限不足，请检查';
+    }
+  }else{
+    // 创建新 bin
+    const ok=await jbCreateBin();
+    if(ok){
+      document.getElementById('cloudMsg').textContent='✅ 云端同步已开启！Bin ID: '+getBinId()+'（复制此 ID 到其他设备）';
+      jbWrite();
+    }else{
+      document.getElementById('cloudMsg').textContent='❌ 创建失败，请检查 API Key';
+    }
+  }
+  updateCloudModalBtns();
+  updateSyncIndicator();
+}
+
+// 断开云端，回到纯本地模式
+function disconnectCloud(){
+  localStorage.removeItem(JB_KEY);
+  localStorage.removeItem(JB_BIN);
+  syncEnabled=false;
+  updateSyncIndicator();
+  updateCloudModalBtns();
+  document.getElementById('cloudApiKey').value='';
+  document.getElementById('cloudMsg').textContent='已断开云端，数据仅在本地存储';
+  closeCloudModal();
+}
+init();
+</script>
+</body>
+</html>
