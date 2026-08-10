@@ -315,16 +315,22 @@ async function gistCreate(){
 
 async function loadData(){
   const key=getApiKey(),bid=getBinId();
-  // 如果有 Gist 配置，优先从云端加载
   if(key&&bid){
     try{
-      syncEnabled=true;
       const cloud=await gistRead();
-      if(cloud&&(Object.keys(cloud.weeks||{}).length||Object.keys(cloud.days||{}).length)){
-        localStorage.setItem(SK,JSON.stringify(cloud));
-        updateSyncIndicator();return cloud;
+      if(cloud&&cloud.weeks!==undefined&&cloud.days!==undefined){
+        syncEnabled=true;
+        // 云端有数据就用云端，空数据也认
+        const result={weeks:{...cloud.weeks},days:{...cloud.days}};
+        // 同时检查本地是否有额外数据，合并进去
+        try{const r=localStorage.getItem(SK);if(r){const local=JSON.parse(r);for(const w of Object.keys(local.weeks||{})){if(!result.weeks[w])result.weeks[w]=local.weeks[w];}for(const d of Object.keys(local.days||{})){if(!result.days[d])result.days[d]=local.days[d];}}}catch(e){}
+        localStorage.setItem(SK,JSON.stringify(result));
+        updateSyncIndicator();
+        // 合并后推回云端
+        setTimeout(()=>gistWrite(),100);
+        return result;
       }
-    }catch(e){syncEnabled=false;}
+    }catch(e){}
   }
   syncEnabled=false;
   updateSyncIndicator();
