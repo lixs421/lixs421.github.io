@@ -71,6 +71,9 @@ body {
 .task-title { font-size: 14px; word-break: break-word; }
 .task-item.done .task-title { color: var(--done); text-decoration: line-through; }
 .task-link { font-size: 11px; color: var(--text-3); margin-top: 3px; display: flex; align-items: center; gap: 3px; }
+.proc-tag { display: inline-block; font-size: 10px; background: #FFF3E0; color: #E65100; padding: 1px 6px; border-radius: 3px; margin-left: 6px; vertical-align: middle; font-weight: 500; }
+.proc-banner { display: none; padding: 8px 12px; border-radius: 8px; font-size: 12px; margin-bottom: 12px; background: #FFF3E0; color: #E65100; }
+.proc-banner.show { display: flex; align-items: center; gap: 6px; }
 .task-actions { display: flex; gap: 4px; flex-shrink: 0; }
 .task-actions button { border: none; background: none; cursor: pointer; font-size: 14px; padding: 4px; opacity: .4; transition: opacity .15s; }
 .task-actions button:hover { opacity: 1; }
@@ -191,6 +194,7 @@ body {
       <button class="tool-btn import" onclick="openImportModal()">📎 从周计划导入</button>
       <button class="tool-btn import" onclick="openAIModal('day')" style="border-color:var(--work);background:var(--work-bg);color:var(--work)">✨ 智能分解</button>
     </div>
+    <div class="proc-banner" id="procBanner">⏳ 以下有昨天未完成、自动归入今天的任务</div>
     <div class="section">
       <div class="section-header"><span class="sec-icon">💼</span><span class="work-color">工作</span><span class="count" id="dayWorkCount"></span></div>
       <div class="task-list" id="dayWorkList"></div>
@@ -386,6 +390,9 @@ function renderDay(){
   const w=['日','一','二','三','四','五','六'];
   document.getElementById('dayTitle').innerHTML=label+'<small>周'+w[date.getDay()]+'</small>';
   const day=getDay(dk);
+  // 拖延提示横幅
+  const hasProc=[...day.work,...day.life].some(t=>t.procrastinated);
+  document.getElementById('procBanner').classList.toggle('show',hasProc);
   renderTaskList('dayWorkList',day.work,'work','day');
   renderTaskList('dayLifeList',day.life,'life','day');
   const wd=day.work.filter(t=>t.done).length,ld=day.life.filter(t=>t.done).length;
@@ -401,7 +408,8 @@ function renderTaskList(elemId,tasks,type,scope){
   if(!tasks.length){el.innerHTML='<div class="empty-state">还没有任务，添加一个吧 ✨</div>';return}
   el.innerHTML=tasks.map(t=>{
     const link=(scope==='day'&&t.weekKey)?'<div class="task-link">📎 关联周计划</div>':'';
-    return'<div class="task-item '+(t.done?'done':'')+'"><div class="checkbox '+(type+'-check')+' '+(t.done?'checked':'')+'" onclick="toggleTask(\''+scope+'\',\''+type+'\',\''+t.id+'\')"></div><div class="task-content" onclick="editTask(\''+scope+'\',\''+type+'\',\''+t.id+'\')"><div class="task-title" id="title-'+scope+'-'+type+'-'+t.id+'">'+escapeHtml(t.title)+'</div>'+link+'</div><div class="task-actions"><button onclick="deleteTask(\''+scope+'\',\''+type+'\',\''+t.id+'\')">🗑</button></div></div>';
+    const pTag=t.procrastinated?'<span class="proc-tag">⏳ 拖延</span>':'';
+    return'<div class="task-item '+(t.done?'done':'')+'"><div class="checkbox '+(type+'-check')+' '+(t.done?'checked':'')+'" onclick="toggleTask(\''+scope+'\',\''+type+'\',\''+t.id+'\')"></div><div class="task-content" onclick="editTask(\''+scope+'\',\''+type+'\',\''+t.id+'\')"><div class="task-title" id="title-'+scope+'-'+type+'-'+t.id+'">'+escapeHtml(t.title)+pTag+'</div>'+link+'</div><div class="task-actions"><button onclick="deleteTask(\''+scope+'\',\''+type+'\',\''+t.id+'\')">🗑</button></div></div>';
   }).join('');
 }
 
@@ -559,10 +567,37 @@ function showToast(msg){
 }
 
 // ===== Init =====
+function migrateOverdueTasks(){
+  const today=new Date(),yesterday=addDays(today,-1);
+  const yk=getDateKey(yesterday),tk=getDateKey(today);
+  // 已迁移过不再处理
+  if(localStorage.getItem('migrated_'+yk)===tk) return;
+  const yDay=data.days[yk];
+  if(!yDay) return;
+  const tDay=getDay(tk);
+  let migrated=false;
+  ['work','life'].forEach(type=>{
+    yDay[type].filter(t=>!t.done).forEach(t=>{
+      tDay[type].push({id:genId(),title:t.title,done:false,weekKey:t.weekKey||null,weekType:t.weekType||null,weekTaskId:t.weekTaskId||null,procrastinated:true,procSourceDate:yk});
+      migrated=true;
+    });
+  });
+  if(migrated){localStorage.setItem('migrated_'+yk,tk);saveData()}
+}
+// 清理30天前的迁移记录
+function cleanOldMigrations(){
+  const now=new Date();
+  Object.keys(localStorage).filter(k=>k.startsWith('migrated_')).forEach(k=>{
+    const d=new Date(k.slice(10));if((now-d)/86400000>30)localStorage.removeItem(k);
+  });
+}
+
 async function init(){
   if(!localStorage.getItem(JB_KEY)) localStorage.setItem(JB_KEY,_TOK);
   if(!localStorage.getItem(JB_BIN)) localStorage.setItem(JB_BIN,_GIST);
   data=await loadData();
+  migrateOverdueTasks();
+  cleanOldMigrations();
   updateSyncIndicator();
   renderDateInfo();renderBanners();renderWeek();renderDay();
   setInterval(renderBanners,60000);
